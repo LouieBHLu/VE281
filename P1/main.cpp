@@ -1,34 +1,64 @@
 #include <iostream>
 #include "sort.hpp"
+#include <ctime>
+#include <chrono>
+#include <algorithm>
 using namespace std;
+
+template<typename T, typename Compare>
+void std_sort(std::vector<T> &vector, Compare comp = std::less<T>()) {
+    std::sort(vector.begin(), vector.end(), comp);
+}
 
 int main(int argc, char const *argv[])
 {
-    vector<int> vec(10);
-    for(int i = 0; i < 10; i++) vec[i] = rand() % 10000;
-    vector<int> ori(vec);
-    vector<int> vec_big(187);
-    for(int i = 0; i < 187; i++) vec_big[i] = i;
+    // Number of elements in the array
+    int size = atoi(argv[1]);
+    // Type of sort algorithm to be tested
+    int test_type = atoi(argv[2]);
+    // Initialize random seed
+    srand(time(NULL));
+    double total_time = 0;
+    for(int i = 0; i < 100; i++){
+        // Initialize the array
+        vector<int> vec(size);
 
-    bubble_sort(vec, less<int>());
-    for(int i = 0; i < 10; i++) vec[i] = ori[i];
+        // Fill the array with random elements
+        for(int i = 0; i < size; i++) vec[i] = rand() % 1000;
 
-    selection_sort(vec, less<int>());
-    for(int i = 0; i < 10; i++) vec[i] = ori[i];
+            auto start = std::chrono::steady_clock::now();
+            
+            switch (test_type){
+            case 1:
+                bubble_sort(vec, std::less<int>());
+                break;
+            case 2:
+                insertion_sort(vec, std::less<int>());
+                break;
+            case 3:
+                selection_sort(vec, std::less<int>());
+                break;
+            case 4:
+                merge_sort(vec, std::less<int>());
+                break;
+            case 5:
+                quick_sort_extra(vec, std::less<int>());
+                break;
+            case 6:
+                quick_sort_inplace(vec, std::less<int>());
+                break;
+            default:
+                std_sort(vec, std::less<int>());
+                break;
+            }
+            auto end = std::chrono::steady_clock::now();
+            // cout the time
+            chrono::duration<double, std::micro> elapsed_seconds = end-start;
+            total_time += elapsed_seconds.count();
+    }
 
-    insertion_sort(vec, less<int>());
-    for(int i = 0; i < 10; i++) vec[i] = ori[i];
-
-    merge_sort(vec, less<int>());
-    for(int i = 0; i < 10; i++) vec[i] = ori[i];
-    
-    quick_sort_inplace(vec_big, less<int>());
-    for(int i = 0; i < 187; i++) vec_big[i] = i;
-
-    quick_sort_extra(vec_big, less<int>());
-    for(int i = 0; i < 187; i++) vec_big[i] = i;
-
-
+    total_time /= 100;
+    cout << total_time << "| ";
 
     return 0;
 }
