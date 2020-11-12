@@ -1,9 +1,10 @@
 #include "hash_prime.hpp"
-
+#include <cmath>
 #include <exception>
 #include <functional>
 #include <vector>
 #include <forward_list>
+#include <iostream>
 
 /**
  * The Hashtable class
@@ -36,7 +37,7 @@ public:
         typedef typename HashNodeList::iterator ListIterator;
 
         const HashTable *hashTable;
-        VectorIterator bucketIt;    // an iterator of the buckets
+        VectorIterator bucketIt;    // an iterator of the buckets， which bucket the iterator is in
         ListIterator listItBefore;  // a before iterator of the list, here we use "before" for quick erase and insert
         bool endFlag = false;       // whether it is an end iterator
 
@@ -45,7 +46,7 @@ public:
          * Time complexity: Amortized O(1)
          */
         void increment() {
-            if (bucketIt == hashTable->buckets.end()) {
+            if (bucketIt == hashTable->buckets.end()) { 
                 endFlag = true;
                 return;
             }
@@ -68,12 +69,14 @@ public:
             endFlag = true;
         }
 
+        // Constructor of Iterator
         explicit Iterator(HashTable *hashTable) : hashTable(hashTable) {
             bucketIt = hashTable->buckets.begin();
             listItBefore = bucketIt->before_begin();
             endFlag = bucketIt == hashTable->buckets.end();
         }
 
+        // Constructor of Iterator
         Iterator(HashTable *hashTable, VectorIterator vectorIt, ListIterator listItBefore) :
                 hashTable(hashTable), bucketIt(vectorIt), listItBefore(listItBefore) {
             endFlag = bucketIt == hashTable->buckets.end();
@@ -122,6 +125,7 @@ public:
             ++listIt;
             return *listIt;
         }
+
     };
 
 protected:                                                                  // DO NOT USE private HERE!
@@ -152,6 +156,7 @@ protected:                                                                  // D
      * @return the hash value of key with current bucket size
      */
     inline size_t hashKey(const Key &key) const {
+        if(buckets.size() == 0) return 0;
         return hash(key) % buckets.size();
     }
 
@@ -167,33 +172,66 @@ protected:                                                                  // D
      * @param bucketSize lower bound of the new number of buckets
      */
     size_t findMinimumBucketSize(size_t bucketSize) const {
-        // TODO: implement this function
-    }
 
-    // TODO: define your helper functions here if necessary
+        size_t i;
+        for(i = 0; i < 62; i++){
+            size_t temp = HashPrime::g_a_sizes[i];
+            double t = (double)tableSize;
+            double a = t/maxLoadFactor;
+            size_t b = (size_t)a;
+            if(temp >= bucketSize && temp > b) break;
+        }
+        if(i == 62) throw std::range_error("No such bucket size found!");
+        return HashPrime::g_a_sizes[i];
+    }
 
 
 public:
+    // Constructor
     HashTable() :
             buckets(DEFAULT_BUCKET_SIZE), tableSize(0), maxLoadFactor(DEFAULT_LOAD_FACTOR),
             hash(Hash()), keyEqual(KeyEqual()) {
-        firstBucketIt = buckets.end();
+        firstBucketIt = buckets.end(); // why it's the end iterator? It's empty.
     }
 
+    //
     explicit HashTable(size_t bucketSize) :
             tableSize(0), maxLoadFactor(DEFAULT_LOAD_FACTOR),
             hash(Hash()), keyEqual(KeyEqual()) {
         bucketSize = findMinimumBucketSize(bucketSize);
         buckets.resize(bucketSize);
-        firstBucketIt = buckets.end();
+        firstBucketIt = buckets.end(); // why it's the end iterator? It's empty.
     }
 
-    HashTable(const HashTable &that) {
-        // TODO: implement this function
+    HashTable(const HashTable &that){
+        // Copy basic attributes
+        this->buckets.clear();
+        this->buckets.resize(that.bucketSize());
+
+        tableSize = that.size();
+        maxLoadFactor = that.getMaxLoadFactor();
+        hash = that.hash;
+        keyEqual = that.keyEqual;
+
+        // Copy all buckets
+        for(size_t i = 0; i < that.buckets.size(); i++) this->buckets[i] = that.buckets[i];
+            
     }
 
     HashTable &operator=(const HashTable &that) {
-        // TODO: implement this function
+        // Copy basic attributes
+        this->buckets.clear();
+        this->buckets.resize(that.bucketSize());
+
+        tableSize = that.size();
+        maxLoadFactor = that.getMaxLoadFactor();
+        hash = that.hash;
+        keyEqual = that.keyEqual;
+
+        // Copy all buckets
+        for(size_t i = 0; i < that.buckets.size(); i++) this->buckets[i] = that.buckets[i];
+
+        return (*this);
     };
 
     ~HashTable() = default;
@@ -210,6 +248,7 @@ public:
     }
 
     /**
+     * 
      * Find whether the key exists in the hashtable
      * Time Complexity: Amortized O(k)
      * @param key
@@ -228,7 +267,27 @@ public:
      * @return a pair (success, iterator of the value)
      */
     Iterator find(const Key &key) {
-        // TODO: implement this function
+        // Calculate the hash key
+        size_t index = hashKey(key);
+        
+        this->firstBucketIt = this->buckets.begin() + index;
+
+        Iterator it1 = this->begin();
+        Iterator it2 = this->begin();
+
+        // Search for the pair in this bucket according to the given key
+        it1.listItBefore++;
+        while(it1.listItBefore != it1.bucketIt->end()){
+            // If find the key
+            if(it1.listItBefore->first == key){
+                it2.endFlag = false;
+                return it2;
+            }
+            it2.listItBefore++;
+            it1.listItBefore++;
+        }
+        it2.endFlag = true;
+        return it2;
     }
 
     /**
@@ -244,7 +303,23 @@ public:
      * @return whether insertion took place (return false if the key already exists)
      */
     bool insert(const Iterator &it, const Key &key, const Value &value) {
-        // TODO: implement this function
+        // Update
+        if(it.endFlag == 0){
+            std::next(it.listItBefore)->second = value;
+            return false;
+        }
+        // If it does not exist, insert it at the back of this bucket
+        HashNode new_node(key, value);
+        it.bucketIt->insert_after(it.listItBefore, new_node);
+        this->tableSize++;
+
+        // Update the firstBucketIt
+        this->firstBucketIt = it.bucketIt;
+
+        // If load factor exceeds maximum value, rehash the hashtable
+        if(this->loadFactor() > this->maxLoadFactor) this->rehash(this->buckets.size());
+
+        return true;
     }
 
     /**
@@ -258,7 +333,8 @@ public:
      * @return whether insertion took place (return false if the key already exists)
      */
     bool insert(const Key &key, const Value &value) {
-        // TODO: implement this function
+        Iterator it = this->find(key);
+        return insert(it, key, value);
     }
 
     /**
@@ -270,7 +346,13 @@ public:
      * @return whether the key exists
      */
     bool erase(const Key &key) {
-        // TODO: implement this function
+        if(this->contains(key)){
+            Iterator it = this->find(key);
+            this->erase(it);
+
+            return true;
+        }
+        else return false;
     }
 
     /**
@@ -282,7 +364,11 @@ public:
      * @return the iterator after the input iterator before the erase
      */
     Iterator erase(const Iterator &it) {
-        // TODO: implement this function
+        if(it.endFlag == true) return it;
+
+        auto temp_it = it.bucketIt->erase_after(it.listItBefore);
+        this->tableSize--;
+        return Iterator(this, it.bucketIt, temp_it);
     }
 
     /**
@@ -295,7 +381,9 @@ public:
      * @return reference of value
      */
     Value &operator[](const Key &key) {
-        // TODO: implement this function
+        if(this->contains(key) == false) this->insert(key,0);
+        Iterator it = this->find(key);
+        return it->second;
     }
 
     /**
@@ -310,7 +398,20 @@ public:
     void rehash(size_t bucketSize) {
         bucketSize = findMinimumBucketSize(bucketSize);
         if (bucketSize == buckets.size()) return;
-        // TODO: implement this function
+        // Pop all pairs into a vector
+        std::vector<HashNode> v;
+        for(size_t i = 0; i < this->buckets.size(); i++){
+            if(this->buckets[i].empty()) continue;
+            for(auto it = this->buckets[i].begin(); it != this->buckets[i].end(); ++it){
+                HashNode new_node(it->first, it->second);
+                v.push_back(new_node);
+                //this->erase(it->first);
+            }
+        }
+
+        HashTable<Key, Value> temp_table(bucketSize);
+        for(size_t i = 0; i < v.size(); i++) temp_table.insert(v[i].first, v[i].second);
+        *(this) = temp_table;
     }
 
     /**
