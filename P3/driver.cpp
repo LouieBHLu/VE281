@@ -21,10 +21,14 @@ int main(int argc, char const *argv[])
     v[3].second = 'd';
     v[4].second = 'e';
     v[5].second = 'f';
+
+    // Test constructor
     KDTree<Key,Value> t1(v);
     for(auto it = t1.begin(); it != t1.end(); ++it){
         cout << it->second << endl;
     }
+
+    // Test --
     auto it_end = t1.end();
     it_end--;
     cout << it_end->second << endl;
@@ -51,11 +55,51 @@ int main(int argc, char const *argv[])
         cout << it->second << endl;
     }
 
+    // Test findmin
     auto it_min_x = t1.findMin<0>();
     cout << it_min_x->second << endl;
 
     auto it_min_y = t1.findMin<1>();
     cout << it_min_y->second << endl;
+
+    // Test findmax
+    auto it_max_x = t1.findMax<0>();
+    cout << it_max_x->second << endl;
+
+    auto it_max_y = t1.findMax<1>();
+    cout << it_max_y->second << endl;
+
+    // Test copy constructor
+    KDTree<Key,Value> t1_copy(t1); 
+
+    for(auto it = t1.begin(); it != t1.end(); ++it){
+        cout << it->second << endl;
+    }
+
+    for(auto it = t1_copy.begin(); it != t1_copy.end(); ++it){
+        cout << it->second << endl;
+    }
+
+    // Test assignment operator
+    KDTree<Key,Value> t2;
+    t2 = t1;
+
+    // // Test erase
+    // t1.erase(k_new);
+
+    // for(auto it = t1.begin(); it != t1.end(); ++it){
+    //     cout << it->second << endl;
+    // }
+
+    // t1.erase({3,3});
+
+    // for(auto it = t1.begin(); it != t1.end(); ++it){
+    //     cout << it->second << endl;
+    // }
+  
+
+
+
 
 
 

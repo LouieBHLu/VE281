@@ -209,6 +209,7 @@ protected:                      // DO NOT USE private HERE!
         // If the node is empty
         if(!node){
             node = new Node(key, value, parent);
+            this->treeSize++;
             return true;
         }
 
@@ -221,6 +222,8 @@ protected:                      // DO NOT USE private HERE!
         // If not exist, insert the new pair
         if(std::get<DIM>(key) < std::get<DIM>(node->key())) insert<DIM_NEXT>(key, value, node->left, node);
         else insert<DIM_NEXT>(key, value, node->right, node);
+
+        return true;
     }
 
     /**
@@ -269,14 +272,14 @@ protected:                      // DO NOT USE private HERE!
     template<size_t DIM_CMP, size_t DIM>
     Node *findMin(Node *node) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
-        // TODO: implement this function
         if(!node) return nullptr;
         Node* min = findMin<DIM_CMP, DIM_NEXT>(node->left);
         if(DIM_CMP != DIM){
             Node* rightMin = findMin<DIM_CMP, DIM_NEXT>(node->right);
-            min = compareNode<DIM, std::less<>>(min, rightMin, std::less<>());
+            min = compareNode<DIM_CMP, std::less<>>(min, rightMin, std::less<>());
         }
-        return compareNode<DIM, std::less<>>(min, node, std::less<>());
+        
+        return compareNode<DIM_CMP, std::less<>>(min, node, std::less<>());
     }
 
     /**
@@ -290,7 +293,14 @@ protected:                      // DO NOT USE private HERE!
     template<size_t DIM_CMP, size_t DIM>
     Node *findMax(Node *node) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
-        // TODO: implement this function
+        if(!node) return nullptr;
+        Node* max = findMax<DIM_CMP, DIM_NEXT>(node->right);
+        if(DIM_CMP != DIM){
+            Node* leftMax = findMax<DIM_CMP, DIM_NEXT>(node->left);
+            max = compareNode<DIM_CMP, std::greater<>>(max, leftMax, std::greater<>());
+        }
+
+        return compareNode<DIM_CMP, std::greater<>>(max, node, std::greater<>());
     }
 
     template<size_t DIM>
@@ -325,7 +335,61 @@ protected:                      // DO NOT USE private HERE!
     Node *erase(Node *node, const Key &key) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
         // TODO: implement this function
+        if(!node) return nullptr;
 
+        if(key == node->key()){
+            if(!node->left && !node->right){
+                delete node;
+                this->treeSize--;
+                return nullptr;
+            }
+            else if(node->right){ 
+                Node* minNode = this->findMin<DIM,DIM_NEXT>(node->right);
+
+                // Replace current node with minNode
+                Node* replace_node = new Node(minNode->key(), minNode->value(), node->parent);
+                replace_node->left = node->left;
+                replace_node->right = node->right;
+                if(node->left) node->left->parent = replace_node;
+                if(node->right) node->right->parent = replace_node;
+                if(node->parent){
+                    if(node == node->parent->left) node->parent->left = replace_node;
+                    else node->parent->right = replace_node;
+                }
+                delete node;
+
+                // Go recursively into current node's right subtree
+                replace_node->right = erase<DIM_NEXT>(replace_node->right, minNode->key());
+            }
+            else if(node->left){
+                Node* maxNode = this->findMax<DIM,DIM_NEXT>(node->left);
+                
+                // Replace current node with maxNode
+                Node* replace_node = new Node(maxNode->key(), maxNode->value(), node->parent);
+                replace_node->left = node->left;
+                replace_node->right = node->right;
+                if(node->left) node->left->parent = replace_node;
+                if(node->right) node->right->parent = replace_node;
+                if(node->parent){
+                    if(node == node->parent->left) node->parent->left = replace_node;
+                    else node->parent->right = replace_node;
+                }
+                delete node;
+
+                // Go recursively into current node's left subtree
+                replace_node->left = erase<DIM_NEXT>(replace_node->left, maxNode->key());
+            }
+        }
+        else{
+            if(std::get<DIM>(key) < std::get<DIM>(node->key())){
+                node->left = erase<DIM_NEXT>(node->left, key);
+            }
+            else{
+                node->right = erase<DIM_NEXT>(node->right, key);
+            }
+        }
+
+        return node;
     }
 
     template<size_t DIM>
@@ -375,6 +439,25 @@ protected:                      // DO NOT USE private HERE!
         return n;
     }
 
+    Node* copy_node(Node* root, Node* parent_root){
+        if(!root) return nullptr;
+
+        Node* node_copy = new Node(root->key(), root->value(), parent_root);
+        
+        if(root->left) node_copy->left = copy_node(root->left, node_copy);
+        if(root->right) node_copy->right = copy_node(root->right, node_copy);
+
+        return node_copy;
+    }
+
+    void Destroy_helper(Node *root){
+        if(root != nullptr){
+            Destroy_helper(root->left);
+            Destroy_helper(root->right);
+            delete root;
+        }
+    }
+
 public:
     KDTree() = default;
 
@@ -402,15 +485,14 @@ public:
         
         // Helper           
         root = KDTree_helper<0>(v, nullptr);
-        int i = 0;
     }
 
     /**
      * Time complexity: O(n)
      */
     KDTree(const KDTree &that) {
-        // TODO: implement this function
-        
+        this->root = this->copy_node(that.root, nullptr);
+        this->treeSize = that.treeSize;
     }
 
     /**
@@ -418,6 +500,10 @@ public:
      */
     KDTree &operator=(const KDTree &that) {
         // TODO: implement this function
+        Destroy_helper(this->root);
+        this->root = this->copy_node(that.root, nullptr);
+        this->treeSize = that.treeSize;
+        return *this;
     }
 
     /**
@@ -425,6 +511,7 @@ public:
      */
     ~KDTree() {
         // TODO: implement this function
+        Destroy_helper(this->root);
     }
 
     Iterator begin() {
