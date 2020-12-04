@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <stdexcept>
+#include <iostream>
 
 
 /**
@@ -206,6 +207,7 @@ protected:                      // DO NOT USE private HERE!
     template<size_t DIM>
     bool insert(const Key &key, const Value &value, Node *&node, Node *parent) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
+
         // If the node is empty
         if(!node){
             node = new Node(key, value, parent);
@@ -213,11 +215,11 @@ protected:                      // DO NOT USE private HERE!
             return true;
         }
 
-        // If the key already exists, replace the value only
-        if(this->find<0>(key, this->root)){
-            this->find<0>(key, this->root)->value() = value;
+        // If we find the node with the key
+        if(key == node->key()){
+            node->value() = value;
             return false;
-        } 
+        }
 
         // If not exist, insert the new pair
         if(std::get<DIM>(key) < std::get<DIM>(node->key())) insert<DIM_NEXT>(key, value, node->left, node);
@@ -272,6 +274,7 @@ protected:                      // DO NOT USE private HERE!
     template<size_t DIM_CMP, size_t DIM>
     Node *findMin(Node *node) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
+
         if(!node) return nullptr;
         Node* min = findMin<DIM_CMP, DIM_NEXT>(node->left);
         if(DIM_CMP != DIM){
@@ -293,6 +296,7 @@ protected:                      // DO NOT USE private HERE!
     template<size_t DIM_CMP, size_t DIM>
     Node *findMax(Node *node) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
+
         if(!node) return nullptr;
         Node* max = findMax<DIM_CMP, DIM_NEXT>(node->right);
         if(DIM_CMP != DIM){
@@ -305,6 +309,7 @@ protected:                      // DO NOT USE private HERE!
 
     template<size_t DIM>
     Node *findMinDynamic(size_t dim) {
+
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
         if (dim >= KeySize) {
             dim %= KeySize;
@@ -315,6 +320,7 @@ protected:                      // DO NOT USE private HERE!
 
     template<size_t DIM>
     Node *findMaxDynamic(size_t dim) {
+
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
         if (dim >= KeySize) {
             dim %= KeySize;
@@ -334,7 +340,6 @@ protected:                      // DO NOT USE private HERE!
     template<size_t DIM>
     Node *erase(Node *node, const Key &key) {
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
-        // TODO: implement this function
         if(!node) return nullptr;
 
         if(key == node->key()){
@@ -344,43 +349,30 @@ protected:                      // DO NOT USE private HERE!
                 return nullptr;
             }
             else if(node->right){ 
+                // Find the minNode in the right subtree
                 Node* minNode = this->findMin<DIM,DIM_NEXT>(node->right);
 
                 // Replace current node with minNode
-                Node* replace_node = new Node(minNode->key(), minNode->value(), node->parent);
-                replace_node->left = node->left;
-                replace_node->right = node->right;
-                if(node->left) node->left->parent = replace_node;
-                if(node->right) node->right->parent = replace_node;
-                if(node->parent){
-                    if(node == node->parent->left) node->parent->left = replace_node;
-                    else node->parent->right = replace_node;
-                }
-                delete node;
+                node->value() = minNode->value();
+                const_cast<Key&>(node->key()) = minNode->key();
 
                 // Go recursively into current node's right subtree
-                replace_node->right = erase<DIM_NEXT>(replace_node->right, minNode->key());
+                node->right = erase<DIM_NEXT>(node->right, node->key());
             }
             else if(node->left){
+                // Find the maxNode in the left subtree
                 Node* maxNode = this->findMax<DIM,DIM_NEXT>(node->left);
-                
-                // Replace current node with maxNode
-                Node* replace_node = new Node(maxNode->key(), maxNode->value(), node->parent);
-                replace_node->left = node->left;
-                replace_node->right = node->right;
-                if(node->left) node->left->parent = replace_node;
-                if(node->right) node->right->parent = replace_node;
-                if(node->parent){
-                    if(node == node->parent->left) node->parent->left = replace_node;
-                    else node->parent->right = replace_node;
-                }
-                delete node;
 
-                // Go recursively into current node's left subtree
-                replace_node->left = erase<DIM_NEXT>(replace_node->left, maxNode->key());
+                // Replace current node with maxNode
+                node->value() = maxNode->value();
+                const_cast<Key&>(node->key()) = maxNode->key();
+
+                // Go recursively into current node's left subtrees
+                node->left = erase<DIM_NEXT>(node->left, node->key());
             }
         }
         else{
+
             if(std::get<DIM>(key) < std::get<DIM>(node->key())){
                 node->left = erase<DIM_NEXT>(node->left, key);
             }
@@ -394,6 +386,7 @@ protected:                      // DO NOT USE private HERE!
 
     template<size_t DIM>
     Node *eraseDynamic(Node *node, size_t dim) {
+
         constexpr size_t DIM_NEXT = (DIM + 1) % KeySize;
         if (dim >= KeySize) {
             dim %= KeySize;
@@ -402,7 +395,7 @@ protected:                      // DO NOT USE private HERE!
         return eraseDynamic<DIM_NEXT>(node, dim);
     }
 
-    // TODO: define your helper functions here if necessary
+    // Helper function
     template<size_t DIM>
     Node* KDTree_helper(std::vector<std::pair<Key, Value>> v, Node* parent){
         if(v.empty()) return nullptr;
@@ -474,17 +467,14 @@ public:
 
         // Unique
         for(size_t i = 0; i < v.size() - 1; i++){
-            for(size_t j = i + 1; j < v.size(); j++){
-                if(v[i].first == v[j].first){
-                    auto it = v.begin() + j;
-                    v.erase(it);
-                    j--;
-                }
+            if(v[i].first == v[i+1].first){
+                auto it = v.begin() + i;
+                v.erase(it);
             }
         }
         
         // Helper           
-        root = KDTree_helper<0>(v, nullptr);
+        root = KDTree_helper<0>(v, nullptr);         
     }
 
     /**
@@ -499,7 +489,6 @@ public:
      * Time complexity: O(n)
      */
     KDTree &operator=(const KDTree &that) {
-        // TODO: implement this function
         Destroy_helper(this->root);
         this->root = this->copy_node(that.root, nullptr);
         this->treeSize = that.treeSize;
@@ -510,7 +499,6 @@ public:
      * Time complexity: O(n)
      */
     ~KDTree() {
-        // TODO: implement this function
         Destroy_helper(this->root);
     }
 
