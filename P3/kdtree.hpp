@@ -372,7 +372,6 @@ protected:                      // DO NOT USE private HERE!
             }
         }
         else{
-
             if(std::get<DIM>(key) < std::get<DIM>(node->key())){
                 node->left = erase<DIM_NEXT>(node->left, key);
             }
