@@ -3,6 +3,7 @@
 #include <queue>
 using namespace std;
 const int INF = 1000000000;
+
 // A type for shortest distance
 // First item store the shortest distance to the node
 // Second item store the node's index
@@ -19,7 +20,7 @@ private:
         int end_index;
         Edge *next;
 
-        Edge(int weight, int start, int end): weight(weight), start_index(start), end_index(end), next(nullptr){}        
+        Edge(int weight, int start, int end): weight(weight), start_index(start), end_index(end), next(nullptr) {}        
     };
 
     class Node{
@@ -35,12 +36,11 @@ private:
 
 public:
     Graph(int node_num){
-        this->nodeNum = node_num;
+        nodeNum = node_num;
         nodes = new Node[node_num];
     }
 
     ~Graph(){
-        // TODO
         for(int i = 0; i < nodeNum; i++){
             Edge* q = nullptr;
             Edge* p = nodes[i].headEdge;
@@ -50,15 +50,14 @@ public:
                 p = q;
             }
         }
-
         delete[] nodes;
     }
 
     void readGraph(){
-        // set index of nodes
+        // Set index of nodes
         for(int i = 0; i < nodeNum; i++) nodes[i].index = i;
 
-        // read the file
+        // Read the file
         stringstream ss;
         while(!cin.eof()){
             string line;
@@ -101,8 +100,8 @@ public:
         q.push(make_pair(0, source_node));
         dist[source_node] = 0;
 
-        /* Looping till priority queue becomes empty (or all 
-        distances are not finalized) */
+        // Looping till priority queue becomes empty (or all 
+        // distances are not finalized)
         while(!q.empty()){
             int u = q.top().second;
             q.pop();
@@ -122,7 +121,6 @@ public:
                         q.push(make_pair(dist[v], v));
                     }
 
-                    // Check next edge
                     temp = temp->next;
                 }
             }
